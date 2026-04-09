@@ -1,7 +1,11 @@
-成績上位者を上位30%と定義し、その他のグループと比較しました。
+成績上位者を上位30%と定義し、その他のグループと比較した。
 その結果、勉強時間や出席率、過去成績に差が見られ、
-これらが成績に影響する要因であると考えました。
+これらが成績に影響する要因であると考えた。
 
+
+PERCENT_RANK関数を用いて、試験スコア上位30%をTop、それ以外をOtherとして分類した。
+その上で、各グループの勉強時間、出席率、睡眠時間、過去成績などの平均値を比較した。
+    
 mysql> WITH ranked AS (
     ->     SELECT
     ->         *,
@@ -30,7 +34,9 @@ mysql> WITH ranked AS (
 | Other       |     19.88 |          80.05 |         0 |            0 |         0.00 |         7.04 |     67.82 |
 | Top         |      20.2 |          79.81 |         0 |            0 |         0.00 |            7 |     92.76 |
 +-------------+-----------+----------------+-----------+--------------+--------------+--------------+-----------+
-2 rows in set (0.069 sec)
+
+PERCENT_RANK関数を用いて、試験スコア上位30%をTop、それ以外をOtherとして分類した。
+その上で、各グループの勉強時間、出席率、睡眠時間、過去成績などの平均値を比較した。
 
 
 
@@ -70,10 +76,17 @@ mysql> WITH ranked AS (
 +--------------------+---------------------+------------+---------------+
 | 0.3210303576860021 | -0.2368339197712146 |          0 |             0 |
 +--------------------+---------------------+------------+---------------+
-1 row in set (0.099 sec)
+
+・結果
+この差分結果もデータ修正前のものであり、sleepやpreviousが0になっているため、
+信頼できる分析結果ではなく、データ異常の確認用として扱った。
 
 
+CSVファイルをstudent_performanceテーブルに取り込むためのSQL。
+この時点では列を手動で指定していた。
 
+↓
+    
 mysql> 
 mysql> WITH ranked AS (
     ->     SELECT *,
@@ -100,10 +113,17 @@ mysql> WITH ranked AS (
 | Top         | Low              |   583 |
 | Top         | High             |   396 |
 +-------------+------------------+-------+
-6 rows in set (0.056 sec)
+
+結果
+30956 warnings が発生しており、取り込み時点でデータ不整合が起きていた。
+原因は、CSVの実際の列順と、SQLで指定した列順が一致していなかったためである。
 
 
 
+
+CSVファイルをstudent_performanceテーブルに取り込むためのSQL。
+この時点では列を手動で指定していた。
+↓
 #データベースを修正前　(SQL)
 
 LOAD DATA LOCAL INFILE '/Users/toruyamaguchi/Downloads/StudentPerformanceFactors.csv'
@@ -125,8 +145,14 @@ mysql> SELECT COUNT(*) FROM student_performance;
 +----------+
 |     6607 |
 +----------+
-1 row in set (0.006 sec)
 
+結果
+　30956 warnings が発生しており、取り込み時点でデータ不整合が起きていた。
+原因は、CSVの実際の列順と、SQLで指定した列順が一致していなかったためである。
+    
+
+重要な数値列が正しく取り込まれているかを確認するため、先頭10件を抽出した。
+↓
 mysql> SELECT Hours_Studied, Sleep_Hours, Previous_Scores, Tutoring_Sessions, Exam_Score
     -> FROM student_performance
     -> LIMIT 10;
@@ -144,14 +170,17 @@ mysql> SELECT Hours_Studied, Sleep_Hours, Previous_Scores, Tutoring_Sessions, Ex
 |            17 |           0 |               0 |                 0 |         80 |
 |            23 |           0 |               0 |                 0 |         71 |
 +---------------+-------------+-----------------+-------------------+------------+
-10 rows in set (0.000 sec)
+
+結果
+    Hours_Studied は自然な値だった一方で、
+　　Sleep_Hours、Previous_Scores、Tutoring_Sessions がすべて0になっていた。
+　　そのため、CSV取り込み時の列ずれが発生していることが分かった。
 
 
 
-
-
-
-
+    
+テーブル定義をCSVの列順に合わせて修正したうえで、列指定なしで再度CSVを取り込んだ。
+↓
 #データベースを修正(SQL)
 
 LOAD DATA LOCAL INFILE '/Users/toruyamaguchi/Downloads/StudentPerformanceFactors.csv'
@@ -180,4 +209,11 @@ mysql> SELECT Sleep_Hours, Previous_Scores, Tutoring_Sessions, Exam_Score
 |           6 |              80 |                 0 |         69 |
 |           8 |              71 |                 0 |         72 |
 +-------------+-----------------+-------------------+------------+
-10 rows in set (0.001 sec)
+
+結果
+　　Warnings が 0 となり、データが正常に取り込まれたことを確認できた。
+　　修正後は各列が正しい位置に格納されるようになった。
+
+
+
+
